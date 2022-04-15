@@ -5,6 +5,8 @@ Changelog
 ~~~~~~~~~~~~~~~~
 
  * Phase out special-purpose panel types (`StreamFieldPanel`, `RichTextFieldPanel`, `ImageChooserPanel`, `DocumentChooserPanel`, `PageChooserPanel`, `SnippetChooserPanel`) in favour of `FieldPanel` (Matt Westcott)
+ * Implement splitting of rich text blocks within StreamField (Jacob Topp-Mugglestone)
+ * Add support for image rendition prefetching (Andy Babic)
  * Upgrade ESLint and Stylelint configurations to latest shared Wagtail configs (Thibaud Colas, Paarth Agarwal)
  * Major updates to frontend tooling; move Node tooling from Gulp to Webpack, upgrade to Node v16 and npm v8, eslint v8, stylelint v14 and others (Thibaud Colas)
  * Change comment headers’ date formatting to use browser APIs instead of requiring a library (LB (Ben Johnston))
@@ -50,6 +52,11 @@ Changelog
  * Add internationalisation UI to modeladmin (Andrés Martano)
  * Support chunking in `PageQuerySet.specific()` to reduce memory consumption (Andy Babic)
  * Implement new tabs design across the admin interface (Steven Steinwand)
+ * Move page meta information from the header to a new status side panel component inside of the page editing UI (Steven Steinwand, Karl Hobley)
+ * Add useful help text to Tag fields to advise what content is allowed inside tags, including when `TAG_SPACES_ALLOWED` is `True` or `False` (Abdulmajeed Isa)
+ * Change `AbstractFormSubmission`'s `form_data` to use JSONField to store form submissions (Jake Howard)
+ * Add image duplicate detection on upload (Tidiane Dia, with sponsorship from The Motley Fool)
+ * Add a system font stack for monospace fonts (Rishank Kanaparti)
  * Fix: When using `simple_translations` ensure that the user is redirected to the page edit view when submitting for a single locale (Mitchel Cabuloy)
  * Fix: When previewing unsaved changes to `Form` pages, ensure that all added fields are correctly shown in the preview (Joshua Munn)
  * Fix: When Documents (e.g. PDFs) have been configured to be served inline via `WAGTAILDOCS_CONTENT_TYPES` & `WAGTAILDOCS_INLINE_CONTENT_TYPES` ensure that the filename is correctly set in the `Content-Disposition` header so that saving the files will use the correct filename (John-Scott Atlakson)

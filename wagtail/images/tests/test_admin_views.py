@@ -1326,6 +1326,113 @@ class TestImageChooserUploadView(TestCase, WagtailTestUtils):
         # The form should have an error
         self.assertFormError(response, "form", "file", "This field is required.")
 
+    def test_upload_duplicate(self):
+        def post_image(title="Test image"):
+            return self.client.post(
+                reverse("wagtailimages:chooser_upload"),
+                {
+                    "image-chooser-upload-title": title,
+                    "image-chooser-upload-file": SimpleUploadedFile(
+                        "test.png", get_test_image_file().file.getvalue()
+                    ),
+                },
+            )
+
+        # Post image then post duplicate
+        post_image()
+        response = post_image(title="Test duplicate image")
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response, "wagtailimages/chooser/confirm_duplicate_upload.html"
+        )
+
+        # Check context
+        Image = get_image_model()
+        new_image = Image.objects.get(title="Test duplicate image")
+        existing_image = Image.objects.get(title="Test image")
+        self.assertEqual(response.context["new_image"], new_image)
+        self.assertEqual(response.context["existing_image"], existing_image)
+
+        choose_new_image_action = reverse(
+            "wagtailimages:image_chosen", args=(new_image.id,)
+        )
+        self.assertEqual(
+            response.context["confirm_duplicate_upload_action"], choose_new_image_action
+        )
+
+        choose_existing_image_action = (
+            reverse("wagtailimages:delete", args=(new_image.id,))
+            + "?"
+            + urlencode(
+                {
+                    "next": reverse(
+                        "wagtailimages:image_chosen", args=(existing_image.id,)
+                    )
+                }
+            )
+        )
+        self.assertEqual(
+            response.context["cancel_duplicate_upload_action"],
+            choose_existing_image_action,
+        )
+
+        # Check JSON
+        response_json = json.loads(response.content.decode())
+        self.assertEqual(response_json["step"], "duplicate_found")
+
+    def test_upload_duplicate_select_format(self):
+        def post_image(title="Test image"):
+            return self.client.post(
+                reverse("wagtailimages:chooser_upload") + "?select_format=true",
+                {
+                    "image-chooser-upload-title": title,
+                    "image-chooser-upload-file": SimpleUploadedFile(
+                        "test.png", get_test_image_file().file.getvalue()
+                    ),
+                },
+            )
+
+        # Post image then post duplicate
+        post_image()
+        response = post_image(title="Test duplicate image")
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+
+        # Check context
+        Image = get_image_model()
+        new_image = Image.objects.get(title="Test duplicate image")
+        existing_image = Image.objects.get(title="Test image")
+
+        choose_new_image_action = reverse(
+            "wagtailimages:chooser_select_format", args=(new_image.id,)
+        )
+        self.assertEqual(
+            response.context["confirm_duplicate_upload_action"], choose_new_image_action
+        )
+
+        choose_existing_image_action = (
+            reverse("wagtailimages:delete", args=(new_image.id,))
+            + "?"
+            + urlencode(
+                {
+                    "next": reverse(
+                        "wagtailimages:chooser_select_format", args=(existing_image.id,)
+                    )
+                }
+            )
+        )
+        self.assertEqual(
+            response.context["cancel_duplicate_upload_action"],
+            choose_existing_image_action,
+        )
+
+        # Check JSON
+        response_json = json.loads(response.content.decode())
+        self.assertEqual(response_json["step"], "duplicate_found")
+
     def test_select_format_flag_after_upload_form_error(self):
         submit_url = reverse("wagtailimages:chooser_upload") + "?select_format=true"
         response = self.client.post(
@@ -1641,8 +1748,10 @@ class TestMultipleImageUploader(TestCase, WagtailTestUtils):
         self.assertIn("form", response_json)
         self.assertIn("image_id", response_json)
         self.assertIn("success", response_json)
+        self.assertIn("duplicate", response_json)
         self.assertEqual(response_json["image_id"], response.context["image"].id)
         self.assertTrue(response_json["success"])
+        self.assertFalse(response_json["duplicate"])
 
     def test_add_post_no_title(self):
         """
@@ -1745,6 +1854,111 @@ class TestMultipleImageUploader(TestCase, WagtailTestUtils):
             response_json["error_message"],
             "Not a supported image format. Supported formats: GIF, JPEG, PNG, WEBP.",
         )
+
+    def test_add_post_duplicate(self):
+        """
+        When a duplicate image is saved, the add view shows that it's a duplicate
+        and prompts user to confirm the upload.
+        """
+
+        def post_image(title="test title"):
+            return self.client.post(
+                reverse("wagtailimages:add_multiple"),
+                {
+                    "title": title,
+                    "files[]": SimpleUploadedFile(
+                        "test.png", get_test_image_file().file.getvalue()
+                    ),
+                },
+            )
+
+        # Post image then post duplicate
+        post_image()
+        response = post_image(title="test title duplicate")
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+
+        # Check template used
+        self.assertTemplateUsed(
+            response, "wagtailimages/images/confirm_duplicate_upload.html"
+        )
+
+        # Check image
+        self.assertEqual(response.context["image"].title, "test title duplicate")
+
+        # Check JSON
+        response_json = json.loads(response.content.decode())
+        self.assertIn("form", response_json)
+        self.assertIn("confirm_duplicate_upload", response_json)
+        self.assertTrue(response_json["success"])
+        self.assertTrue(response_json["duplicate"])
+
+    def test_add_post_duplicate_choose_permission(self):
+        """
+        When a duplicate image is added but the user doesn't have permission to choose the original image,
+        the add views lets the user upload it as if it weren't a duplicate.
+        """
+
+        # Create group with access to admin and add permission.
+        bakers_group = Group.objects.create(name="Bakers")
+        access_admin_perm = Permission.objects.get(
+            content_type__app_label="wagtailadmin", codename="access_admin"
+        )
+        bakers_group.permissions.add(access_admin_perm)
+
+        # Create the "Bakery" Collection and grant "add" permission to the Bakers group.
+        root = Collection.objects.get(id=get_root_collection_id())
+        bakery_collection = root.add_child(instance=Collection(name="Bakery"))
+        GroupCollectionPermission.objects.create(
+            group=bakers_group,
+            collection=bakery_collection,
+            permission=Permission.objects.get(
+                content_type__app_label="wagtailimages", codename="add_image"
+            ),
+        )
+
+        def post_image(title="test title"):
+            # Add image in the "Bakery" Collection
+            return self.client.post(
+                reverse("wagtailimages:add_multiple"),
+                {
+                    "title": title,
+                    "files[]": SimpleUploadedFile(
+                        "test.png", get_test_image_file().file.getvalue()
+                    ),
+                    "collection": bakery_collection.id,
+                },
+            )
+
+        # Post image
+        post_image()
+
+        # Remove privileges from user
+        self.user.is_superuser = False
+        self.user.groups.add(bakers_group)
+        self.user.save()
+
+        # Post duplicate
+        response = post_image(title="test title duplicate")
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+
+        # Check template used
+        self.assertTemplateNotUsed(
+            response, "wagtailimages/images/confirm_duplicate_upload.html"
+        )
+
+        # Check image
+        self.assertEqual(response.context["image"].title, "test title duplicate")
+
+        # Check JSON
+        response_json = json.loads(response.content.decode())
+        self.assertTrue(response_json["success"])
+        self.assertFalse(response_json["duplicate"])
+        self.assertIn("form", response_json)
+        self.assertNotIn("confirm_duplicate_upload", response_json)
 
     def test_edit_get(self):
         """
@@ -1930,7 +2144,9 @@ class TestMultipleImageUploaderWithCustomImageModel(TestCase, WagtailTestUtils):
         response_json = json.loads(response.content.decode())
         self.assertIn("form", response_json)
         self.assertIn("success", response_json)
+        self.assertIn("duplicate", response_json)
         self.assertTrue(response_json["success"])
+        self.assertFalse(response_json["duplicate"])
 
     def test_add_post_badfile(self):
         """
@@ -1958,6 +2174,42 @@ class TestMultipleImageUploaderWithCustomImageModel(TestCase, WagtailTestUtils):
             response_json["error_message"],
             "Upload a valid image. The file you uploaded was either not an image or a corrupted image.",
         )
+
+    def test_add_post_duplicate(self):
+        def post_image(title="test title"):
+            return self.client.post(
+                reverse("wagtailimages:add_multiple"),
+                {
+                    "title": title,
+                    "files[]": SimpleUploadedFile(
+                        "test.png", get_test_image_file().file.getvalue()
+                    ),
+                },
+            )
+
+        # Post image then post duplicate
+        post_image()
+        response = post_image(title="test title duplicate")
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+
+        # Check template used
+        self.assertTemplateUsed(
+            response, "wagtailimages/images/confirm_duplicate_upload.html"
+        )
+
+        # Check image
+        self.assertEqual(response.context["image"].title, "test title duplicate")
+        self.assertIn("caption", response.context["form"].fields)
+        self.assertNotIn("not_editable_field", response.context["form"].fields)
+
+        # Check JSON
+        response_json = json.loads(response.content.decode())
+        self.assertIn("form", response_json)
+        self.assertIn("confirm_duplicate_upload", response_json)
+        self.assertTrue(response_json["success"])
+        self.assertTrue(response_json["duplicate"])
 
     def test_unique_together_validation_error(self):
         """

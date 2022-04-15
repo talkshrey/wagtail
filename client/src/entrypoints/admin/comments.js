@@ -135,9 +135,7 @@ window.comments = (() => {
     }
 
     getTab() {
-      return this.fieldNode
-        .closest('section[data-tab]')
-        ?.getAttribute('data-tab');
+      return this.fieldNode.closest('[role="tabpanel"]')?.getAttribute('id');
     }
 
     getAnchorNode() {
@@ -281,9 +279,6 @@ window.comments = (() => {
       new Map(Object.entries(data.authors)),
     );
 
-    // Local state to hold active state of comments
-    let commentsActive = false;
-
     formElement
       .querySelectorAll('[data-component="add-comment-button"]')
       .forEach(initAddCommentButton);
@@ -293,14 +288,21 @@ window.comments = (() => {
       '[data-tabs] [role="tablist"]',
     );
     if (tabNavElement) {
-      commentApp.setCurrentTab(tabNavElement.dataset.currentTab);
+      commentApp.setCurrentTab(
+        tabNavElement
+          .querySelector('[role="tab"][aria-selected="true"]')
+          .getAttribute('href')
+          .replace('#', ''),
+      );
       tabNavElement.addEventListener('switch', (e) => {
         commentApp.setCurrentTab(e.detail.tab);
       });
     }
 
-    // Comments toggle
-    const commentToggle = document.querySelector('[data-comments-toggle]');
+    // Show/hide comments when the side panel is opened/closed
+    const commentsSidePanel = document.querySelector(
+      '[data-side-panel="comments"]',
+    );
     const commentNotifications = formElement.querySelector(
       '[data-comment-notifications]',
     );
@@ -312,27 +314,40 @@ window.comments = (() => {
 
       // Add/Remove tab-nav--comments-enabled class. This changes the size of streamfields
       if (visible) {
-        commentToggle.classList.add('w-text-primary');
         tabContentElement.classList.add('tab-content--comments-enabled');
-        commentNotifications.hidden = false;
+        if (commentNotifications) {
+          commentNotifications.hidden = false;
+        }
       } else {
-        commentToggle.classList.remove('w-text-primary');
         tabContentElement.classList.remove('tab-content--comments-enabled');
-        commentNotifications.hidden = true;
+        if (commentNotifications) {
+          commentNotifications.hidden = true;
+        }
       }
     };
 
-    if (commentToggle) {
-      commentToggle.addEventListener('click', () => {
-        commentsActive = !commentsActive;
-        updateCommentVisibility(commentsActive);
+    if (commentsSidePanel) {
+      commentsSidePanel.addEventListener('show', () => {
+        updateCommentVisibility(true);
+      });
+
+      commentsSidePanel.addEventListener('hide', () => {
+        updateCommentVisibility(false);
       });
     }
 
     // Keep number of comments up to date with comment app
-    const commentCounter = document.querySelector(
-      '[data-comments-toggle-count]',
+    const commentToggle = document.querySelector(
+      '[data-side-panel-toggle="comments"]',
     );
+
+    const commentCounter = document.createElement('div');
+    commentCounter.className =
+      '-w-mr-3 w-py-0.5 w-px-[0.325rem] w-translate-y-[-8px] w-translate-x-[-6px] w-text-[0.5625rem] w-font-bold w-bg-teal-100 w-text-white w-border w-border-white w-rounded-[1rem]';
+    commentToggle.className =
+      'w-h-[50px] w-bg-transparent w-box-border w-py-3 w-px-3 w-flex w-justify-center w-items-center w-outline-offset-inside w-text-grey-400 w-transition hover:w-transform hover:w-scale-110 hover:w-text-primary focus:w-text-primary';
+    commentToggle.appendChild(commentCounter);
+
     const updateCommentCount = () => {
       const commentCount = commentApp.selectors.selectCommentCount(
         commentApp.store.getState(),
@@ -346,8 +361,8 @@ window.comments = (() => {
       if (commentCount > 0) {
         commentCounter.innerText = commentCount.toString();
       } else {
-        // Note: CSS will hide the circle when its content is empty
-        commentCounter.innerText = '';
+        // Note: Hide the circle when its content is empty
+        commentCounter.hidden = true;
       }
     };
     commentApp.store.subscribe(updateCommentCount);

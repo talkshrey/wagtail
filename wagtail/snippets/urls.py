@@ -34,21 +34,23 @@ urlpatterns = [
         name="add",
     ),
     path(
-        "<slug:app_label>/<slug:model_name>/edit/<str:pk>/", snippets.edit, name="edit"
+        "<slug:app_label>/<slug:model_name>/edit/<str:pk>/",
+        snippets.Edit.as_view(),
+        name="edit",
     ),
     path(
         "<slug:app_label>/<slug:model_name>/multiple/delete/",
-        snippets.delete,
+        snippets.Delete.as_view(),
         name="delete-multiple",
     ),
     path(
         "<slug:app_label>/<slug:model_name>/delete/<str:pk>/",
-        snippets.delete,
+        snippets.Delete.as_view(),
         name="delete",
     ),
     path(
         "<slug:app_label>/<slug:model_name>/usage/<str:pk>/",
-        snippets.usage,
+        snippets.Usage.as_view(),
         name="usage",
     ),
     path(
