@@ -29,7 +29,7 @@ from wagtail.snippets.action_menu import (
 )
 from wagtail.snippets.blocks import SnippetChooserBlock
 from wagtail.snippets.models import SNIPPET_MODELS, register_snippet
-from wagtail.snippets.views.snippets import get_snippet_edit_handler
+from wagtail.snippets.views.snippets import get_snippet_panel
 from wagtail.snippets.widgets import (
     AdminSnippetChooser,
     SnippetChooserAdapter,
@@ -94,9 +94,7 @@ class TestSnippetListView(TestCase, WagtailTestUtils):
         self.user = user_model.objects.get()
 
     def get(self, params={}):
-        return self.client.get(
-            reverse("wagtailsnippets:list", args=("tests", "advert")), params
-        )
+        return self.client.get(reverse("wagtailsnippets_tests_advert:list"), params)
 
     def test_simple(self):
         response = self.get()
@@ -147,9 +145,7 @@ class TestSnippetListView(TestCase, WagtailTestUtils):
         def page_listing_buttons(snippet, user, next_url=None):
             self.assertEqual(snippet, advert)
             self.assertEqual(user, self.user)
-            self.assertEqual(
-                next_url, reverse("wagtailsnippets:list", args=("tests", "advert"))
-            )
+            self.assertEqual(next_url, reverse("wagtailsnippets_tests_advert:list"))
 
             yield SnippetListingButton(
                 "Another useless snippet listing button", "/custom-url", priority=10
@@ -190,27 +186,21 @@ class TestLocaleSelectorOnList(TestCase, WagtailTestUtils):
 
     def test_locale_selector(self):
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:list", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:list")
         )
 
         switch_to_french_url = (
-            reverse(
-                "wagtailsnippets:list", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:list")
             + "?locale=fr"
         )
         self.assertContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
         # Check that the add URLs include the locale
         add_url = (
-            reverse(
-                "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
             + "?locale=en"
         )
         self.assertContains(
@@ -224,26 +214,20 @@ class TestLocaleSelectorOnList(TestCase, WagtailTestUtils):
     @override_settings(WAGTAIL_I18N_ENABLED=False)
     def test_locale_selector_not_present_when_i18n_disabled(self):
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:list", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:list")
         )
 
         switch_to_french_url = (
-            reverse(
-                "wagtailsnippets:list", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:list")
             + "?locale=fr"
         )
         self.assertNotContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
         # Check that the add URLs don't include the locale
-        add_url = reverse(
-            "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-        )
+        add_url = reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
         self.assertContains(
             response, f'<a href="{add_url}" class="button bicolor button--icon">'
         )
@@ -253,14 +237,14 @@ class TestLocaleSelectorOnList(TestCase, WagtailTestUtils):
         )
 
     def test_locale_selector_not_present_on_non_translatable_snippet(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:list", args=["tests", "advert"])
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:list"))
+
+        self.assertNotContains(
+            response, 'aria-label="French" class="u-link is-live w-no-underline">'
         )
 
-        self.assertNotContains(response, 'aria-label="French" class="u-link is-live">')
-
         # Check that the add URLs don't include the locale
-        add_url = reverse("wagtailsnippets:add", args=["tests", "advert"])
+        add_url = reverse("wagtailsnippets_tests_advert:add")
         self.assertContains(
             response, f'<a href="{add_url}" class="button bicolor button--icon">'
         )
@@ -279,7 +263,7 @@ class TestModelOrdering(TestCase, WagtailTestUtils):
 
     def test_listing_respects_model_ordering(self):
         response = self.client.get(
-            reverse("wagtailsnippets:list", args=("tests", "advertwithtabbedinterface"))
+            reverse("wagtailsnippets_tests_advertwithtabbedinterface:list")
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["items"][0].text, "aaaadvert")
@@ -305,9 +289,7 @@ class TestSnippetListViewWithSearchableSnippet(TestCase, WagtailTestUtils):
 
     def get(self, params={}):
         return self.client.get(
-            reverse(
-                "wagtailsnippets:list", args=("snippetstests", "searchablesnippet")
-            ),
+            reverse("wagtailsnippets_snippetstests_searchablesnippet:list"),
             params,
         )
 
@@ -349,12 +331,18 @@ class TestSnippetCreateView(TestCase, WagtailTestUtils):
         self.user = self.login()
 
     def get(self, params={}, model=Advert):
-        args = (model._meta.app_label, model._meta.model_name)
-        return self.client.get(reverse("wagtailsnippets:add", args=args), params)
+        app_label = model._meta.app_label
+        model_name = model._meta.model_name
+        return self.client.get(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:add"), params
+        )
 
     def post(self, post_data={}, model=Advert):
-        args = (model._meta.app_label, model._meta.model_name)
-        return self.client.post(reverse("wagtailsnippets:add", args=args), post_data)
+        app_label = model._meta.app_label
+        model_name = model._meta.model_name
+        return self.client.post(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:add"), post_data
+        )
 
     def test_get_with_limited_permissions(self):
         self.user.is_superuser = False
@@ -376,7 +364,7 @@ class TestSnippetCreateView(TestCase, WagtailTestUtils):
 
     def test_snippet_with_tabbed_interface(self):
         response = self.client.get(
-            reverse("wagtailsnippets:add", args=("tests", "advertwithtabbedinterface"))
+            reverse("wagtailsnippets_tests_advertwithtabbedinterface:add")
         )
 
         self.assertEqual(response.status_code, 200)
@@ -420,9 +408,7 @@ class TestSnippetCreateView(TestCase, WagtailTestUtils):
         response = self.post(
             post_data={"text": "test_advert", "url": "http://www.example.com/"}
         )
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         snippets = Advert.objects.filter(text="test_advert")
         self.assertEqual(snippets.count(), 1)
@@ -438,9 +424,7 @@ class TestSnippetCreateView(TestCase, WagtailTestUtils):
             }
         )
 
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         snippet = Advert.objects.get(text="test_advert")
 
@@ -458,9 +442,7 @@ class TestSnippetCreateView(TestCase, WagtailTestUtils):
         )
         self.assertRedirects(
             response,
-            reverse(
-                "wagtailsnippets:list", args=("snippetstests", "fileuploadsnippet")
-            ),
+            reverse("wagtailsnippets_snippetstests_fileuploadsnippet:list"),
         )
         snippet = FileUploadSnippet.objects.get()
         self.assertEqual(snippet.file.read(), b"Uploaded file")
@@ -588,65 +570,64 @@ class TestLocaleSelectorOnCreate(TestCase, WagtailTestUtils):
 
     def test_locale_selector(self):
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
         )
 
         switch_to_french_url = (
-            reverse(
-                "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
             + "?locale=fr"
         )
         self.assertContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
     @override_settings(WAGTAIL_I18N_ENABLED=False)
     def test_locale_selector_not_present_when_i18n_disabled(self):
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
         )
 
         switch_to_french_url = (
-            reverse(
-                "wagtailsnippets:add", args=["snippetstests", "translatablesnippet"]
-            )
+            reverse("wagtailsnippets_snippetstests_translatablesnippet:add")
             + "?locale=fr"
         )
         self.assertNotContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
     def test_locale_selector_not_present_on_non_translatable_snippet(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:add", args=["tests", "advert"])
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:add"))
 
         switch_to_french_url = (
-            reverse("wagtailsnippets:add", args=["tests", "advert"]) + "?locale=fr"
+            reverse("wagtailsnippets_tests_advert:add") + "?locale=fr"
         )
         self.assertNotContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
 
 class BaseTestSnippetEditView(TestCase, WagtailTestUtils):
     def get(self, params={}):
         snippet = self.test_snippet
-        args = (snippet._meta.app_label, snippet._meta.model_name, quote(snippet.pk))
-        return self.client.get(reverse("wagtailsnippets:edit", args=args), params)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        args = [quote(snippet.pk)]
+        return self.client.get(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:edit", args=args), params
+        )
 
     def post(self, post_data={}):
         snippet = self.test_snippet
-        args = (snippet._meta.app_label, snippet._meta.model_name, quote(snippet.pk))
-        return self.client.post(reverse("wagtailsnippets:edit", args=args), post_data)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        args = [quote(snippet.pk)]
+        return self.client.post(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:edit", args=args),
+            post_data,
+        )
 
     def setUp(self):
         self.user = self.login()
@@ -700,16 +681,13 @@ class TestSnippetEditView(BaseTestSnippetEditView):
 
     def test_non_existant_model(self):
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:edit",
-                args=("tests", "foo", quote(self.test_snippet.pk)),
-            )
+            f"/admin/snippets/tests/foo/edit/{quote(self.test_snippet.pk)}/"
         )
         self.assertEqual(response.status_code, 404)
 
     def test_nonexistant_id(self):
         response = self.client.get(
-            reverse("wagtailsnippets:edit", args=("tests", "advert", 999999))
+            reverse("wagtailsnippets_tests_advert:edit", args=[999999])
         )
         self.assertEqual(response.status_code, 404)
 
@@ -748,9 +726,7 @@ class TestSnippetEditView(BaseTestSnippetEditView):
                 "url": "http://www.example.com/edited",
             }
         )
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         snippets = Advert.objects.filter(text="edited_test_advert")
         self.assertEqual(snippets.count(), 1)
@@ -766,9 +742,7 @@ class TestSnippetEditView(BaseTestSnippetEditView):
             }
         )
 
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         snippet = Advert.objects.get(text="edited_test_advert")
 
@@ -917,9 +891,7 @@ class TestEditFileUploadSnippet(BaseTestSnippetEditView):
         )
         self.assertRedirects(
             response,
-            reverse(
-                "wagtailsnippets:list", args=("snippetstests", "fileuploadsnippet")
-            ),
+            reverse("wagtailsnippets_snippetstests_fileuploadsnippet:list"),
         )
         snippet = FileUploadSnippet.objects.get()
         self.assertEqual(snippet.file.read(), b"Replacement document")
@@ -929,7 +901,7 @@ class TestEditFileUploadSnippet(BaseTestSnippetEditView):
 class TestLocaleSelectorOnEdit(BaseTestSnippetEditView):
     fixtures = ["test.json"]
 
-    LOCALE_SELECTOR_HTML = '<a href="javascript:void(0)" aria-label="English" class="c-dropdown__button  u-btn-current">'
+    LOCALE_SELECTOR_HTML = '<a href="javascript:void(0)" aria-label="English" class="c-dropdown__button u-btn-current w-no-underline">'
     LOCALE_INDICATOR_HTML = '<use href="#icon-site"></use></svg>\n    English'
 
     def setUp(self):
@@ -945,16 +917,12 @@ class TestLocaleSelectorOnEdit(BaseTestSnippetEditView):
         self.assertContains(response, self.LOCALE_SELECTOR_HTML)
 
         switch_to_french_url = reverse(
-            "wagtailsnippets:edit",
-            args=[
-                "snippetstests",
-                "translatablesnippet",
-                quote(self.test_snippet_fr.pk),
-            ],
+            "wagtailsnippets_snippetstests_translatablesnippet:edit",
+            args=[quote(self.test_snippet_fr.pk)],
         )
         self.assertContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
     def test_locale_selector_without_translation(self):
@@ -965,16 +933,12 @@ class TestLocaleSelectorOnEdit(BaseTestSnippetEditView):
         self.assertContains(response, self.LOCALE_INDICATOR_HTML)
 
         switch_to_french_url = reverse(
-            "wagtailsnippets:edit",
-            args=[
-                "snippetstests",
-                "translatablesnippet",
-                quote(self.test_snippet_fr.pk),
-            ],
+            "wagtailsnippets_snippetstests_translatablesnippet:edit",
+            args=[quote(self.test_snippet_fr.pk)],
         )
         self.assertNotContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
     @override_settings(WAGTAIL_I18N_ENABLED=False)
@@ -984,16 +948,12 @@ class TestLocaleSelectorOnEdit(BaseTestSnippetEditView):
         self.assertNotContains(response, self.LOCALE_SELECTOR_HTML)
 
         switch_to_french_url = reverse(
-            "wagtailsnippets:edit",
-            args=[
-                "snippetstests",
-                "translatablesnippet",
-                quote(self.test_snippet_fr.pk),
-            ],
+            "wagtailsnippets_snippetstests_translatablesnippet:edit",
+            args=[quote(self.test_snippet_fr.pk)],
         )
         self.assertNotContains(
             response,
-            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live">',
+            f'<a href="{switch_to_french_url}" aria-label="French" class="u-link is-live w-no-underline">',
         )
 
     def test_locale_selector_not_present_on_non_translatable_snippet(self):
@@ -1023,12 +983,8 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
 
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 302)
@@ -1036,12 +992,18 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
     def test_delete_get(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(WAGTAIL_I18N_ENABLED=True)
+    def test_delete_get_with_i18n_enabled(self):
+        response = self.client.get(
+            reverse(
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1057,12 +1019,8 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
 
         response = self.client.post(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 302)
@@ -1070,19 +1028,13 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
     def test_delete_post(self):
         response = self.client.post(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
 
         # Should be redirected to explorer page
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         # Check that the page is gone
         self.assertEqual(Advert.objects.filter(text="test_advert").count(), 0)
@@ -1091,12 +1043,8 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
     def test_usage_link(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1119,9 +1067,7 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
 
         with self.register_hook("before_delete_snippet", hook_func):
             response = self.client.get(
-                reverse(
-                    "wagtailsnippets:delete", args=["tests", "advert", quote(advert.pk)]
-                )
+                reverse("wagtailsnippets_tests_advert:delete", args=[quote(advert.pk)])
             )
 
         self.assertEqual(response.status_code, 200)
@@ -1141,12 +1087,8 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
         with self.register_hook("before_delete_snippet", hook_func):
             response = self.client.post(
                 reverse(
-                    "wagtailsnippets:delete",
-                    args=(
-                        "tests",
-                        "advert",
-                        quote(advert.pk),
-                    ),
+                    "wagtailsnippets_tests_advert:delete",
+                    args=[quote(advert.pk)],
                 )
             )
 
@@ -1170,12 +1112,8 @@ class TestSnippetDelete(TestCase, WagtailTestUtils):
         with self.register_hook("after_delete_snippet", hook_func):
             response = self.client.post(
                 reverse(
-                    "wagtailsnippets:delete",
-                    args=(
-                        "tests",
-                        "advert",
-                        quote(advert.pk),
-                    ),
+                    "wagtailsnippets_tests_advert:delete",
+                    args=[quote(advert.pk)],
                 )
             )
 
@@ -1196,20 +1134,18 @@ class TestSnippetDeleteMultipleWithOne(TestCase, WagtailTestUtils):
         self.login()
 
     def test_delete_get(self):
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % (self.snippet.id)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_delete_post(self):
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % (self.snippet.id)
         response = self.client.post(url)
 
         # Should be redirected to explorer page
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         # Check that the page is gone
         self.assertEqual(Advert.objects.filter(text="test_advert").count(), 0)
@@ -1228,7 +1164,7 @@ class TestSnippetDeleteMultipleWithThree(TestCase, WagtailTestUtils):
 
     def test_delete_get(self):
         # tests that the URL is available on get
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % (
             "&id=".join(["%s" % snippet.id for snippet in self.snippets])
         )
@@ -1237,16 +1173,14 @@ class TestSnippetDeleteMultipleWithThree(TestCase, WagtailTestUtils):
 
     def test_delete_post(self):
         # tests that the URL is available on post and deletes snippets
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % (
             "&id=".join(["%s" % snippet.id for snippet in self.snippets])
         )
         response = self.client.post(url)
 
         # Should be redirected to explorer page
-        self.assertRedirects(
-            response, reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        self.assertRedirects(response, reverse("wagtailsnippets_tests_advert:list"))
 
         # Check that the page is gone
         self.assertEqual(Advert.objects.filter(text="test_advert").count(), 0)
@@ -1266,7 +1200,7 @@ class TestSnippetChooserPanel(TestCase, WagtailTestUtils):
             advert=Advert.objects.create(text=self.advert_text)
         )
 
-        self.edit_handler = get_snippet_edit_handler(model)
+        self.edit_handler = get_snippet_panel(model)
         self.form_class = self.edit_handler.get_form_class()
         form = self.form_class(instance=test_snippet)
         edit_handler = self.edit_handler.get_bound_panel(
@@ -1366,8 +1300,13 @@ class TestSnippetHistory(TestCase, WagtailTestUtils):
 
     def get(self, params={}):
         snippet = self.test_snippet
-        args = (snippet._meta.app_label, snippet._meta.model_name, quote(snippet.pk))
-        return self.client.get(reverse("wagtailsnippets:history", args=args), params)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        args = [quote(snippet.pk)]
+        return self.client.get(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:history", args=args),
+            params,
+        )
 
     def setUp(self):
         self.user = self.login()
@@ -1388,6 +1327,11 @@ class TestSnippetHistory(TestCase, WagtailTestUtils):
             response,
             '<div class="human-readable-date" title="Sept. 30, 2021, 10:01 a.m.">',
         )
+
+    @override_settings(WAGTAIL_I18N_ENABLED=True)
+    def test_get_with_i18n_enabled(self):
+        response = self.get()
+        self.assertEqual(response.status_code, 200)
 
 
 class TestSnippetChoose(TestCase, WagtailTestUtils):
@@ -1553,9 +1497,7 @@ class TestAddOnlyPermissions(TestCase, WagtailTestUtils):
         self.login(username="addonly", password="password")
 
     def test_get_index(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "wagtailsnippets/snippets/type_index.html")
 
@@ -1563,17 +1505,15 @@ class TestAddOnlyPermissions(TestCase, WagtailTestUtils):
         self.assertContains(response, "Add advert")
 
     def test_get_add(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:add", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:add"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "wagtailsnippets/snippets/create.html")
 
     def test_get_edit(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:edit",
-                args=("tests", "advert", quote(self.test_snippet.pk)),
+                "wagtailsnippets_tests_advert:edit",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         # permission should be denied
@@ -1582,19 +1522,15 @@ class TestAddOnlyPermissions(TestCase, WagtailTestUtils):
     def test_get_delete(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         # permission should be denied
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_get_delete_mulitple(self):
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % self.test_snippet.id
         response = self.client.get(url)
         # permission should be denied
@@ -1621,9 +1557,7 @@ class TestEditOnlyPermissions(TestCase, WagtailTestUtils):
         self.login(username="changeonly", password="password")
 
     def test_get_index(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "wagtailsnippets/snippets/type_index.html")
 
@@ -1631,17 +1565,15 @@ class TestEditOnlyPermissions(TestCase, WagtailTestUtils):
         self.assertNotContains(response, "Add advert")
 
     def test_get_add(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:add", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:add"))
         # permission should be denied
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_get_edit(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:edit",
-                args=("tests", "advert", quote(self.test_snippet.pk)),
+                "wagtailsnippets_tests_advert:edit",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1650,19 +1582,15 @@ class TestEditOnlyPermissions(TestCase, WagtailTestUtils):
     def test_get_delete(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         # permission should be denied
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_get_delete_mulitple(self):
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % self.test_snippet.id
         response = self.client.get(url)
         # permission should be denied
@@ -1687,9 +1615,7 @@ class TestDeleteOnlyPermissions(TestCase, WagtailTestUtils):
         self.login(username="deleteonly", password="password")
 
     def test_get_index(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:list", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "wagtailsnippets/snippets/type_index.html")
 
@@ -1697,17 +1623,15 @@ class TestDeleteOnlyPermissions(TestCase, WagtailTestUtils):
         self.assertNotContains(response, "Add advert")
 
     def test_get_add(self):
-        response = self.client.get(
-            reverse("wagtailsnippets:add", args=("tests", "advert"))
-        )
+        response = self.client.get(reverse("wagtailsnippets_tests_advert:add"))
         # permission should be denied
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_get_edit(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:edit",
-                args=("tests", "advert", quote(self.test_snippet.pk)),
+                "wagtailsnippets_tests_advert:edit",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         # permission should be denied
@@ -1716,12 +1640,8 @@ class TestDeleteOnlyPermissions(TestCase, WagtailTestUtils):
     def test_get_delete(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "tests",
-                    "advert",
-                    quote(self.test_snippet.pk),
-                ),
+                "wagtailsnippets_tests_advert:delete",
+                args=[quote(self.test_snippet.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1730,7 +1650,7 @@ class TestDeleteOnlyPermissions(TestCase, WagtailTestUtils):
         )
 
     def test_get_delete_mulitple(self):
-        url = reverse("wagtailsnippets:delete-multiple", args=("tests", "advert"))
+        url = reverse("wagtailsnippets_tests_advert:delete-multiple")
         url += "?id=%s" % self.test_snippet.id
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -1741,13 +1661,13 @@ class TestDeleteOnlyPermissions(TestCase, WagtailTestUtils):
 
 class TestSnippetEditHandlers(TestCase, WagtailTestUtils):
     def test_standard_edit_handler(self):
-        edit_handler = get_snippet_edit_handler(StandardSnippet)
+        edit_handler = get_snippet_panel(StandardSnippet)
         form_class = edit_handler.get_form_class()
         self.assertTrue(issubclass(form_class, WagtailAdminModelForm))
         self.assertFalse(issubclass(form_class, FancySnippetForm))
 
     def test_fancy_edit_handler(self):
-        edit_handler = get_snippet_edit_handler(FancySnippet)
+        edit_handler = get_snippet_panel(FancySnippet)
         form_class = edit_handler.get_form_class()
         self.assertTrue(issubclass(form_class, WagtailAdminModelForm))
         self.assertTrue(issubclass(form_class, FancySnippetForm))
@@ -1762,10 +1682,7 @@ class TestInlinePanelMedia(TestCase, WagtailTestUtils):
         self.login()
 
         response = self.client.get(
-            reverse(
-                "wagtailsnippets:add",
-                args=("snippetstests", "multisectionrichtextsnippet"),
-            )
+            reverse("wagtailsnippets_snippetstests_multisectionrichtextsnippet:add")
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "wagtailadmin/js/draftail.js")
@@ -1876,8 +1793,7 @@ class TestSnippetListViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
     def get(self, params={}):
         return self.client.get(
             reverse(
-                "wagtailsnippets:list",
-                args=("snippetstests", "standardsnippetwithcustomprimarykey"),
+                "wagtailsnippets_snippetstests_standardsnippetwithcustomprimarykey:list"
             ),
             params,
         )
@@ -1905,16 +1821,29 @@ class TestSnippetViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
         )
 
     def get(self, snippet, params={}):
-        args = (snippet._meta.app_label, snippet._meta.model_name, quote(snippet.pk))
-        return self.client.get(reverse("wagtailsnippets:edit", args=args), params)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        args = [quote(snippet.pk)]
+        return self.client.get(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:edit", args=args), params
+        )
 
     def post(self, snippet, post_data={}):
-        args = (snippet._meta.app_label, snippet._meta.model_name, quote(snippet.pk))
-        return self.client.post(reverse("wagtailsnippets:edit", args=args), post_data)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        args = [quote(snippet.pk)]
+        return self.client.post(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:edit", args=args),
+            post_data,
+        )
 
     def create(self, snippet, post_data={}, model=Advert):
-        args = (snippet._meta.app_label, snippet._meta.model_name)
-        return self.client.post(reverse("wagtailsnippets:add", args=args), post_data)
+        app_label = snippet._meta.app_label
+        model_name = snippet._meta.model_name
+        return self.client.post(
+            reverse(f"wagtailsnippets_{app_label}_{model_name}:add"),
+            post_data,
+        )
 
     def test_show_edit_view(self):
         response = self.get(self.snippet_a)
@@ -1934,8 +1863,7 @@ class TestSnippetViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
         self.assertRedirects(
             response,
             reverse(
-                "wagtailsnippets:list",
-                args=("snippetstests", "standardsnippetwithcustomprimarykey"),
+                "wagtailsnippets_snippetstests_standardsnippetwithcustomprimarykey:list"
             ),
         )
 
@@ -1951,8 +1879,7 @@ class TestSnippetViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
         self.assertRedirects(
             response,
             reverse(
-                "wagtailsnippets:list",
-                args=("snippetstests", "standardsnippetwithcustomprimarykey"),
+                "wagtailsnippets_snippetstests_standardsnippetwithcustomprimarykey:list"
             ),
         )
 
@@ -1963,12 +1890,8 @@ class TestSnippetViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
     def test_get_delete(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "snippetstests",
-                    "standardsnippetwithcustomprimarykey",
-                    quote(self.snippet_a.pk),
-                ),
+                "wagtailsnippets_snippetstests_standardsnippetwithcustomprimarykey:delete",
+                args=[quote(self.snippet_a.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1980,12 +1903,8 @@ class TestSnippetViewWithCustomPrimaryKey(TestCase, WagtailTestUtils):
     def test_usage_link(self):
         response = self.client.get(
             reverse(
-                "wagtailsnippets:delete",
-                args=(
-                    "snippetstests",
-                    "standardsnippetwithcustomprimarykey",
-                    quote(self.snippet_a.pk),
-                ),
+                "wagtailsnippets_snippetstests_standardsnippetwithcustomprimarykey:delete",
+                args=[quote(self.snippet_a.pk)],
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -2121,7 +2040,7 @@ class TestSnippetChooserPanelWithCustomPrimaryKey(TestCase, WagtailTestUtils):
             )
         )
 
-        self.edit_handler = get_snippet_edit_handler(model)
+        self.edit_handler = get_snippet_panel(model)
         self.form_class = self.edit_handler.get_form_class()
         form = self.form_class(instance=test_snippet)
         edit_handler = self.edit_handler.get_bound_panel(

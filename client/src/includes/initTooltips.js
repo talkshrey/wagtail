@@ -24,29 +24,53 @@ const hideTooltipOnEsc = {
 /*
  Prevents the tooltip from staying open when the breadcrumbs expand and push the toggle button in the layout
  */
-const hideTooltipOnBreadcrumbExpand = {
-  name: 'hideTooltipOnBreadcrumbExpand',
+const hideTooltipOnBreadcrumbExpandAndCollapse = {
+  name: 'hideTooltipOnBreadcrumbAndCollapse',
   fn({ hide }) {
-    function onBreadcrumbToggleHover() {
+    function onBreadcrumbExpandAndCollapse() {
       hide();
     }
-    const breadcrumbsToggle = document.querySelector(
-      '[data-toggle-breadcrumbs]',
-    );
 
     return {
       onShow() {
-        breadcrumbsToggle.addEventListener(
-          'mouseenter',
-          onBreadcrumbToggleHover,
+        document.addEventListener(
+          'wagtail:breadcrumbs-expand',
+          onBreadcrumbExpandAndCollapse,
+        );
+        document.addEventListener(
+          'wagtail:breadcrumbs-collapse',
+          onBreadcrumbExpandAndCollapse,
         );
       },
       onHide() {
-        breadcrumbsToggle.removeEventListener(
-          'mouseleave',
-          onBreadcrumbToggleHover,
+        document.removeEventListener(
+          'wagtail:breadcrumbs-collapse',
+          onBreadcrumbExpandAndCollapse,
+        );
+        document.removeEventListener(
+          'wagtail:breadcrumbs-expand',
+          onBreadcrumbExpandAndCollapse,
         );
       },
+    };
+  },
+};
+
+/*
+ If the toggle button has a toggle arrow, rotate it when open and closed
+ */
+const rotateToggleIcon = {
+  name: 'rotateToggleIcon',
+  fn(instance) {
+    const dropdownIcon = instance.reference.querySelector('.icon-arrow-down');
+
+    if (!dropdownIcon) {
+      return {};
+    }
+
+    return {
+      onShow: () => dropdownIcon.classList.add('w-rotate-180'),
+      onHide: () => dropdownIcon.classList.remove('w-rotate-180'),
     };
   },
 };
@@ -79,8 +103,23 @@ export function initModernDropdown() {
       '[data-button-with-dropdown-toggle]',
     );
 
+    // Adding data-hover-tooltip-content="Tooltip Text" to the toggle element will give you a tooltip on hover as well
+    const hoverTooltip = toggle.dataset.hoverTooltipContent;
+    let hoverTooltipInstance;
+
     if (toggle) {
-      content.classList.remove('w-hidden');
+      if (content) {
+        content.classList.remove('w-hidden');
+      }
+
+      if (hoverTooltip) {
+        hoverTooltipInstance = tippy(toggle, {
+          content: hoverTooltip,
+          placement: 'bottom',
+          multiple: true,
+          plugins: [hideTooltipOnEsc],
+        });
+      }
 
       tippy(toggle, {
         content: content,
@@ -88,7 +127,18 @@ export function initModernDropdown() {
         interactive: true,
         theme: 'dropdown',
         placement: 'bottom',
-        plugins: [hideTooltipOnEsc, hideTooltipOnBreadcrumbExpand],
+        multiple: true,
+        plugins: [
+          hideTooltipOnEsc,
+          hideTooltipOnBreadcrumbExpandAndCollapse,
+          rotateToggleIcon,
+        ],
+        onShow(instance, event) {
+          hoverTooltipInstance.disable();
+        },
+        onHide(instance, event) {
+          hoverTooltipInstance.enable();
+        },
       });
     }
   });

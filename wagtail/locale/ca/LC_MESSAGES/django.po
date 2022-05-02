@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Wagtail\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-21 14:07+0000\n"
+"POT-Creation-Date: 2022-04-13 19:17+0100\n"
 "PO-Revision-Date: 2014-02-21 15:51+0000\n"
 "Last-Translator: Roger Pons <rogerpons@gmail.com>, 2016-2017,2020\n"
 "Language-Team: Catalan (http://www.transifex.com/torchbox/wagtail/language/"
@@ -521,8 +521,14 @@ msgstr "Afegir restriccions de visualització"
 msgid "Added view restriction"
 msgstr "S'ha afegit una restricció de visualització"
 
+msgid "Add comment"
+msgstr "Afegir comentari"
+
 msgid "Workflow: start"
 msgstr "Fluxe de treball: inicia"
+
+msgid "Workflow started"
+msgstr "Fluxe de treball iniciat"
 
 msgid "Workflow: approve task"
 msgstr "Fluxe de treball: aprova la tasca"

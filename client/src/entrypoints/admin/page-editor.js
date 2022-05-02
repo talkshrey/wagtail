@@ -256,9 +256,9 @@ function initErrorDetection() {
   // eslint-disable-next-line guard-for-in
   for (const index in errorSections) {
     $('[data-tabs] a[href="#' + index + '"]')
-      .find('.w-tabs__errors')
-      .addClass('w-tabs__errors--active')
-      .find('.w-tabs__errors-count')
+      .find('[data-tabs-errors]')
+      .addClass('!w-flex')
+      .find('[data-tabs-errors-count]')
       .text(errorSections[index]);
   }
 }
@@ -407,7 +407,7 @@ window.updateFooterSaveWarning = (formDirty, commentsDirty) => {
 document.addEventListener('DOMContentLoaded', () => {
   const setPanel = (panelName) => {
     const sidePanelWrapper = document.querySelector('[data-form-side]');
-
+    const body = document.querySelector('body');
     // Open / close side panel
 
     // HACK: For now, the comments will show without the side-panel opening.
@@ -415,7 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // We couldn't implement this for Wagtail 3.0 as the existing field styling
     // renders the "Add comment" button on the right hand side, and this gets
     // covered up by the side panel.
-    // RemovedInWagtail40Warning
 
     if (panelName === '' || panelName === 'comments') {
       sidePanelWrapper.classList.remove('form-side--open');
@@ -434,11 +433,13 @@ document.addEventListener('DOMContentLoaded', () => {
           // eslint-disable-next-line no-param-reassign
           panel.hidden = false;
           panel.dispatchEvent(new CustomEvent('show'));
+          body.classList.add('side-panel-open');
         }
       } else if (!panel.hidden) {
         // eslint-disable-next-line no-param-reassign
         panel.hidden = true;
         panel.dispatchEvent(new CustomEvent('hide'));
+        body.classList.remove('side-panel-open');
       }
     });
 
